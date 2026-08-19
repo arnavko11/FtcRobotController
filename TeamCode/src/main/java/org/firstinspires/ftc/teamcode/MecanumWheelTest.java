@@ -20,11 +20,16 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
  *   4. If it rolls backward, that wheel's sign is wrong - fix it in MecanumDrive.
  *
  * Buttons:  X = front left   Y = front right   A = back left   B = back right
+ *
+ * Then check the strafe pattern with the bumpers. On a strafe RIGHT the DIAGONALS oppose:
+ * FL and BR roll forward, FR and BL roll backward. If you see the two LEFT wheels going one
+ * way and the two RIGHT wheels the other, that is a spin, not a strafe.
  */
 @TeleOp(name = "Mecanum Wheel Test", group = "Drive")
 public class MecanumWheelTest extends LinearOpMode {
 
     private static final double TEST_POWER = 0.3;
+    private static final double STRAFE_TEST_POWER = 0.4;
 
     @Override
     public void runOpMode() {
@@ -47,17 +52,28 @@ public class MecanumWheelTest extends LinearOpMode {
 
         telemetry.addLine("Robot on blocks. Watch the TOP of each wheel roll toward the FRONT.");
         telemetry.addLine("X=FL(1)  Y=FR(2)  A=BL(3)  B=BR(4)");
+        telemetry.addLine("Bumpers = pure strafe (diagonals must oppose)");
         telemetry.update();
 
         waitForStart();
 
         while (opModeIsActive()) {
-            frontLeft.setPower(gamepad1.x ? TEST_POWER : 0);
-            frontRight.setPower(gamepad1.y ? TEST_POWER : 0);
-            backLeft.setPower(gamepad1.a ? TEST_POWER : 0);
-            backRight.setPower(gamepad1.b ? TEST_POWER : 0);
+            if (gamepad1.left_bumper || gamepad1.right_bumper) {
+                // Pure strafe, same mixing MecanumDrive uses. Positive = strafe right.
+                double s = gamepad1.right_bumper ? STRAFE_TEST_POWER : -STRAFE_TEST_POWER;
+                frontLeft.setPower(s);
+                frontRight.setPower(-s);
+                backLeft.setPower(-s);
+                backRight.setPower(s);
+            } else {
+                frontLeft.setPower(gamepad1.x ? TEST_POWER : 0);
+                frontRight.setPower(gamepad1.y ? TEST_POWER : 0);
+                backLeft.setPower(gamepad1.a ? TEST_POWER : 0);
+                backRight.setPower(gamepad1.b ? TEST_POWER : 0);
+            }
 
             telemetry.addLine("Each wheel should roll the robot FORWARD.");
+            telemetry.addLine("Bumpers strafe: FL+BR one way, FR+BL the other.");
             telemetry.addData("FL (1)", gamepad1.x ? "SPINNING" : "-");
             telemetry.addData("FR (2)", gamepad1.y ? "SPINNING" : "-");
             telemetry.addData("BL (3)", gamepad1.a ? "SPINNING" : "-");
