@@ -16,9 +16,20 @@ import com.qualcomm.robotcore.hardware.DcMotorEx;
  *   left stick  - translate (forward/back, strafe)
  *   right stick - rotate
  *   left trigger - slow mode (scales down to 30% at full pull)
+ *   dpad left/right - pure strafe, no drift from the stick's diagonal
  */
 @TeleOp(name = "Mecanum Drive", group = "Drive")
 public class MecanumDrive extends LinearOpMode {
+
+    /**
+     * Mecanum rollers push at 45 degrees, so a sideways command loses force to scrub and the
+     * robot strafes slower than it drives for the same stick throw. Scaling x up evens that out.
+     * Tune on the field: raise it if strafing still lags, lower it if the robot over-slides.
+     */
+    private static final double STRAFE_CORRECTION = 1.1;
+
+    /** Speed used by the dpad strafe buttons. */
+    private static final double DPAD_STRAFE_POWER = 0.6;
 
     private DcMotorEx frontLeft, frontRight, backLeft, backRight;
 
@@ -49,8 +60,16 @@ public class MecanumDrive extends LinearOpMode {
 
         while (opModeIsActive()) {
             double drive  = -gamepad1.left_stick_y;   // stick y is inverted on the gamepad
-            double strafe =  gamepad1.left_stick_x;
+            double strafe =  gamepad1.left_stick_x * STRAFE_CORRECTION;
             double turn   =  gamepad1.right_stick_x;
+
+            // Dpad overrides the stick for a clean, straight strafe with no forward drift.
+            if (gamepad1.dpad_left || gamepad1.dpad_right) {
+                drive  = 0;
+                turn   = 0;
+                strafe = (gamepad1.dpad_right ? DPAD_STRAFE_POWER : -DPAD_STRAFE_POWER)
+                        * STRAFE_CORRECTION;
+            }
 
             // Full pull on the left trigger scales everything down to 30% for fine control.
             double scale = 1.0 - 0.7 * gamepad1.left_trigger;
@@ -74,9 +93,12 @@ public class MecanumDrive extends LinearOpMode {
     private void setDrivePower(double drive, double strafe, double turn, double scale) {
         double denominator = Math.max(Math.abs(drive) + Math.abs(strafe) + Math.abs(turn), 1.0);
 
+        // The back motors drive their wheels through an external gear, which reverses the
+        // output rotation relative to the motor shaft. The leading minus cancels that out.
+        // Do NOT remove it - the robot will drive front-against-back if you do.
         frontLeft.setPower((drive + strafe + turn) / denominator * scale);
         frontRight.setPower((drive - strafe - turn) / denominator * scale);
-        backLeft.setPower((drive - strafe + turn) / denominator * scale);
-        backRight.setPower((drive + strafe - turn) / denominator * scale);
+        backLeft.setPower(-((drive - strafe + turn) / denominator * scale));
+        backRight.setPower(-((drive + strafe - turn) / denominator * scale));
     }
 }
