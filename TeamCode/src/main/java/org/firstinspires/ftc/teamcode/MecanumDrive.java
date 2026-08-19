@@ -40,12 +40,19 @@ public class MecanumDrive extends LinearOpMode {
         backLeft   = hardwareMap.get(DcMotorEx.class, "3");
         backRight  = hardwareMap.get(DcMotorEx.class, "4");
 
-        // Motors on the left side face the opposite direction from the right side,
-        // so reverse the left ones to make positive power = forward on all four.
+        // Direction lives HERE and nowhere else - never negate a wheel down in the mixing,
+        // where it is easy to lose track of which compensations are already applied.
+        //
+        // The only rule that matters: on positive power, every wheel must roll the robot
+        // FORWARD. Verify with MecanumWheelTest, do not reason it out from the motors - the
+        // gearing between gearbox and wheel reverses the output, and it does not necessarily
+        // do so on all four. Once all four roll forward, the mixing below is correct as-is.
         frontLeft.setDirection(DcMotor.Direction.REVERSE);
-        backLeft.setDirection(DcMotor.Direction.REVERSE);
         frontRight.setDirection(DcMotor.Direction.FORWARD);
-        backRight.setDirection(DcMotor.Direction.FORWARD);
+        // Back pair is flipped relative to the front: verified on the robot with
+        // MecanumWheelTest, where both back wheels rolled backward before this change.
+        backLeft.setDirection(DcMotor.Direction.FORWARD);
+        backRight.setDirection(DcMotor.Direction.REVERSE);
 
         for (DcMotorEx m : new DcMotorEx[]{frontLeft, frontRight, backLeft, backRight}) {
             m.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
@@ -93,12 +100,12 @@ public class MecanumDrive extends LinearOpMode {
     private void setDrivePower(double drive, double strafe, double turn, double scale) {
         double denominator = Math.max(Math.abs(drive) + Math.abs(strafe) + Math.abs(turn), 1.0);
 
-        // The back motors drive their wheels through an external gear, which reverses the
-        // output rotation relative to the motor shaft. The leading minus cancels that out.
-        // Do NOT remove it - the robot will drive front-against-back if you do.
+        // Strafing right drives the diagonals against each other: FL and BR forward, FR and
+        // BL backward. This is plain, unmodified mecanum mixing - every hardware correction
+        // has already been handled by setDirection above. Do not add signs here.
         frontLeft.setPower((drive + strafe + turn) / denominator * scale);
         frontRight.setPower((drive - strafe - turn) / denominator * scale);
-        backLeft.setPower(-((drive - strafe + turn) / denominator * scale));
-        backRight.setPower(-((drive + strafe - turn) / denominator * scale));
+        backLeft.setPower((drive - strafe + turn) / denominator * scale);
+        backRight.setPower((drive + strafe - turn) / denominator * scale);
     }
 }
